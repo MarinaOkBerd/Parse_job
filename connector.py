@@ -1,70 +1,62 @@
 import json
+from typing import Optional
+
 class Connector:
     """
     Класс коннектор к файлу, обязательно файл должен быть в json формате
     не забывать проверять целостность данных, что файл с данными не подвергся
     внешнего деградации
     """
-    __data_file = None
+    def __init__(self, file_path: str):
+        self.data_file = file_path
+
     @property
     def data_file(self):
         return self.__data_file
 
     @data_file.setter
-    def data_file(self, value):
+    def data_file(self, value: str):
         self.__data_file = value
         self.__connect()
 
     def __connect(self):
-        """
-        Проверка на существование файла с данными и
-        создание его при необходимости
-        Также проверить на деградацию и возбудить исключение
-        если файл потерял актуальность в структуре данных
-        """
         try:
-            with open(self.__data_file, "r", encoding='utf-8') as f:
-                json.load(f)
-        except FileNotFoundError:
-            json.dumps([], f)
-        #except .....если плохой
+            data = self._read_json()
+            assert isinstance(data, list)
+            for item in data:
+                assert isinstance(item, dict)
+        except Exception:
+            self._save_json([])
 
-    def insert(self, data):
-        """
-        Запись данных в файл с сохранением структуры и исходных данных
-        """
-        data = json.dumps(data, indent=2, ensure_ascii=False)
-        with open(self.__data_file, "w", encoding='utf-8') as f:
-            f.write(data)
+    def _save_json(self, data: list) -> None:
+        with open(self.data_file, 'w') as f:
+            json.dump(data, f, indent=4, ensure_ascii=False)
 
-    def select(self, query):
-        """
-        Выбор данных из файла с применением фильтрации
-        query содержит словарь, в котором ключ это поле для
-        фильтрации, а значение это искомое значение, например:
-        {'price': 1000}, должно отфильтровать данные по полю price
-        и вернуть все строки, в которых цена 1000
-        """
-        pass
+    def _read_json(self) -> list:
+        with open(self.data_file, 'r', encoding='utf-8') as f:
+            return json.load(f)
 
-    def delete(self, query):
-        """
-        Удаление записей из файла, которые соответствуют запрос,
-        как в методе select. Если в query передан пустой словарь, то
-        функция удаления не сработает
-        """
-        pass
+    def insert(self, data: dict) -> None:
+        file_data: list = self._read_json()
+        file_data.append(data)
+        self._save_json(file_data)
+
+    def select(self, query: Optional[dict] = None) -> list:
+        file_data: list = self._read_json()
+        if not query:
+            return file_data
+
+        result = []
+        for entry in file_data:
+            if all(entry.get(key) == value for key, value in query.items()):
+                result.append(entry)
+
+        return result
 
 
-# if __name__ == '__main__':
-#     df = Connector('df.json')
-#
-#     data_for_file = {'id': 1, 'title': 'tet'}
-#
-#     df.insert(data_for_file)
-#     data_from_file = df.select(dict())
-#     assert data_from_file == [data_for_file]
-#
-#     df.delete({'id':1})
-#     data_from_file = df.select(dict())
-#     assert data_from_file == []
+
+
+
+
+
+
