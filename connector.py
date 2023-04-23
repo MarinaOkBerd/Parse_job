@@ -1,5 +1,7 @@
 import json
-from typing import Optional
+import logging
+import os
+
 
 class Connector:
     """
@@ -7,51 +9,74 @@ class Connector:
     не забывать проверять целостность данных, что файл с данными не подвергся
     внешнего деградации
     """
-    def __init__(self, file_path: str):
-        self.data_file = file_path
+    __data_file = None
 
-    @property
-    def data_file(self):
-        return self.__data_file
-
-    @data_file.setter
-    def data_file(self, value: str):
-        self.__data_file = value
+    def __init__(self, df):
+        self.__data_file = df
         self.__connect()
 
     def __connect(self):
+        """
+        Проверка на существование файла с данными и
+        создание его при необходимости
+        Также проверить на деградацию и возбудить исключение
+        если файл потерял актуальность в структуре данных
+        """
         try:
-            data = self._read_json()
-            assert isinstance(data, list)
-            for item in data:
-                assert isinstance(item, dict)
-        except Exception:
-            self._save_json([])
+            if self.__data_file not in os.listdir('.'):
+                with open(self.__data_file, 'w') as file:
+                    file.write(json.dumps([]))
+        except Exception as ex:
+            logging.critical(ex)
 
-    def _save_json(self, data: list) -> None:
-        with open(self.data_file, 'w') as f:
-            json.dump(data, f, indent=4, ensure_ascii=False)
+    def insert(self, data):
+        """
+        Запись данных в файл с сохранением структуры и исходных данных
+        """
+        with open(self.__data_file, 'r') as f:
+            r_data = json.load(f)
+            r_data.append(data)
+        with open(self.__data_file, 'w') as w:
+            json.dump(r_data, w)
 
-    def _read_json(self) -> list:
-        with open(self.data_file, 'r', encoding='utf-8') as f:
-            return json.load(f)
+    def select(self, query):
+        """
+        Выбор данных из файла с применением фильтрации
+        query содержит словарь, в котором ключ это поле для
+        фильтрации, а значение это искомое значение, например:
+        {'price': 1000}, должно отфильтровать данные по полю price
+        и вернуть все строки, в которых цена 1000
+        """
+        data_from_file = []
+        with open(self.__data_file, 'r', encoding='utf-8') as file:
+            data = json.load(file)
 
-    def insert(self, data: dict) -> None:
-        file_data: list = self._read_json()
-        file_data.append(data)
-        self._save_json(file_data)
-
-    def select(self, query: Optional[dict] = None) -> list:
-        file_data: list = self._read_json()
         if not query:
-            return file_data
+            return data
 
-        result = []
-        for entry in file_data:
-            if all(entry.get(key) == value for key, value in query.items()):
-                result.append(entry)
+        for item in data:
+            for key, value in query.items():
+                if item[key] == value:
+                    data_from_file.append(item)
+        return data_from_file
 
-        return result
+    def delete(self, query):
+        """
+        Удаление записей из файла, которые соответствуют запрос,
+        как в методе select
+        """
+        try:
+            with open('df.json', 'r') as f:
+                data = json.load(f)
+
+            with open('df.json', 'w') as f:
+                result = None
+                for key in query.keys():
+                    result = [*filter(lambda el: el[key] != query[key], result if result else data)]
+                json.dump(result, f)
+
+        except Exception as ex:
+            logging.critical(ex)
 
 
 
