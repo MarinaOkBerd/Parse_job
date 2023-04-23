@@ -1,66 +1,43 @@
-from engine_classes import HH
-from jobs_classes import *
-from connector import Connector
+from engine_classes import HH, SuperJob
+from jobs_classes import HHVacancy, SJVacancy
+from jobs_classes import get_top, sorting
 
 
-def run():
-    global hh_engine
+if __name__ == '__main__':
+    name_website = int(input("Выберите сайт для поиска: для HeadHunter - 1, для SuperJob - 2"))
+    name_vacancy = input("Введите название вакансии:")
+    count_vacancy = int(input('Сколько вакансий показывать'))
+    sort = int(input("Отсортировать вакансии: да - 1: нет - 2"))
     while True:
-        name_vacancy = input("Введите название вакансии.")
-        count_vacancy = int(input("Сколько вакансий показывать "))
-        name_website = input("Выберите сайт для поиска: для HeadHunter - 1, для SuperJob - 2")
-        sort = input("Отсортировать вакансии: да - 1: нет - 2")
-        top_count = int(input("Сколько вывести лучших вакансий "))
+        vacancies_count = 100
         if name_website == 1:
-            hh_engine = HH(name_vacancy)
-            hh_connector = hh_engine.get_connector('hh.json')
-            vacancies_hh = hh_engine.get_request().json()['items']
-            for vacancy in vacancies_hh:
-                hh_connector.insert(vacancy)
+            hh_engine = HH()
+            hh = hh_engine.get_request(name_vacancy, vacancies_count)
+            hh_ = HH.get_connector('hh.json')
+            hh_.insert(hh)
+            HHVacancy.instantiate_from_json('hh.json')
+            if sort == 2:
 
-        while True:
-            if count_vacancy > 0:
-                vacancies_hh = Connector.select()#??????????
-        while True:
+                get_top(HHVacancy.vacancies, count_vacancy)
+                print(HHVacancy.get_count_of_vacancy)
+            else:
+                sort_list = sorting(HHVacancy.vacancies)
+                get_top(sort_list, count_vacancy)
+                print(HHVacancy.get_count_of_vacancy)
 
+        if name_website == 2:
+            sj_engine = SuperJob()
+            sj = sj_engine.get_request(name_vacancy, vacancies_count)
+            sj_ = SuperJob.get_connector('sj.json')
+            sj_.insert(sj)
+            SJVacancy.instantiate_from_json('sj.json')
+            if sort == 2:
+                get_top(SJVacancy.vacancies, count_vacancy)
+                print(SJVacancy.get_count_of_vacancy)
+            else:
+                sort_list = sorting(SJVacancy.vacancies)
+                get_top(sort_list, count_vacancy)
+                print(SJVacancy.get_count_of_vacancy)
 
+        break
 
-
-
-
-        #elif name_website == 2:
-        #     vac_sj = SuperJob(name_vacancy)
-        #     sj_json = vac_sj.get_request(name_vacancy, count_vacancy)
-        #     sj_connector = vac_sj.get_connector('sj.json')
-        #     sj_connector.insert(sj_json)
-        #     vacancies_sj = SJVacancy(sj_json)
-        #     vac_sj_len = vacancies_sj.get_count_of_vacancy('sj_json')
-        #     print(f"Вакансии с сайта SuperJob: {vac_sj_len} позиций")
-        #     result_sj = sj_connector.select()
-        #     for i in result_sj:
-        #         print(i)
-        #     if sort == 1:
-        #         vac_sj_sort = SJVacancy.sorting(result_sj)
-        #         result_sj_sort = []
-        #         for i in range(len(vac_sj_sort)):
-        #             vac = HHVacancy(result_sj_sort[i])
-        #             result_sj_sort.append(vac)
-        #         for i in result_sj_sort:
-        #             print(i)
-        #     else:
-        #         for i in result_sj:
-        #             print(i)
-        #     if top_count == 1:
-        #         vac_sj_sort = HHVacancy.sorting(result_sj)
-        #         vac_sj_top = HHVacancy.get_top(vac_sj_sort, top_count)
-        #         for i in vac_sj_top:
-        #             print(i)
-        #     else:
-        #         for i in result_sj:
-        #             print(i)
-        #     if end == 3:
-        #         quit()
-
-
-if __name__ == "__main__":
-    run()
