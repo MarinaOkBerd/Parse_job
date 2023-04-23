@@ -2,86 +2,128 @@ import json
 
 
 class Vacancy:
+    name_class = 'Vacancy'
     __slots__ = ('name', 'url', 'description', 'salary')
 
-    def __init__(self, data):
-        self.name = data['name']
-        self.url = data['url']
-        self.description = data['description']
-        self.salary = data.get('salary')
+    def __init__(self, name, url, description, salary):
+        self.name = name
+        self.url = url
+        self.description = description
+        self.salary = salary
 
     def __str__(self):
-        pass
+        not_salary = 'не указана'
+        return f'{self.name}, зарплата: {self.salary if self.salary else not_salary} руб/мес'
+
+    def __eq__(self, other):
+        return self.salary == other.salary
+
+    def __ne__(self, other):
+        return self.salary != other.salary
+
+    def __gt__(self, other):
+        return self.salary > other.salary
+
+    def __ge__(self, other):
+        return self.salary >= other.salary
+
+    def __lt__(self, other):
+        return self.salary < other.salary
+
+    def __le__(self, other):
+        return self.salary <= other.salary
+
+    def __iter__(self):
+        self.value = 0
+        return self.value
+
+    def __next__(self):
+        if self.value < len(self.vacancies):
+            self.value += 1
+        else:
+            raise StopIteration
 
 
 class CountMixin:
-
-    @staticmethod
-    def get_count_of_vacancy(file):
+    @property
+    def get_count_of_vacancy(self):
         """
         Вернуть количество вакансий от текущего сервиса.
         Получать количество необходимо динамически из файла.
         """
-        with open(file, encoding='utf-8') as f:
-            data = json.load(f)
-            return len(data)
+        with open(self.file, 'r') as f:
+            my_file = json.load(f)
+            for i in my_file:
+                for item in i:
+                    self.count += 1
+        return self.count
 
 
-
-class HHVacancy(Vacancy, CountMixin):
+class HHVacancy(Vacancy, CountMixin):  # add counter mixin
     """ HeadHunter Vacancy """
-    def __init__(self, data, name, url, description, salary):
+    vacancies = []
+    file = 'hh.json'
+
+    def __init__(self, name, url, description, salary):
         super().__init__(name, url, description, salary)
-        self.name = data['items']['name']
-        self.url = data['items']['apply_alternate_url']
-        self.description = data['items']['snippet']['responsibility']
-        self.salary = data['items']['salary']['from']
+        self.name = name
+        self.count = CountMixin.get_count_of_vacancy
 
-    # def sorting(vacancies_hh):
-    #     sort_hh = []
-    #     for i in range(len(vacancies_hh)):
-    #         if vacancies_hh[i]['salary'] is not None:
-    #             sort_hh.append(vacancies_hh[i])
-    #     sort_hh = sorted(key=lambda x: x['salary']['from'], reverse=True)
-    #     return sort_hh
-    #
-    # def get_top(vacancies_hh, top_count):
-    #     sort_hh = sorted(key=lambda x: x['salary']['from'], reverse=True)
-    #     vac_hh_top = []
-    #     for i in range(top_count):
-    #         vac_hh_top.append(sort_hh[i])
-    #     return sort_hh
-
-    def __str__(self):
-        return f'HH: {self.name}, зарплата: {self.salary} руб/мес'
-
+    @classmethod
+    def instantiate_from_json(cls, file):
+        with open(f'{file}') as f:
+            file_opened = json.load(f)
+            for i in file_opened:
+                for item in i:
+                    n = item.get('name')
+                    u = item.get('url')
+                    d = item.get('snippet').get('responsibility')
+                    try:
+                        s = item.get('salary').get('from')
+                        if s == None: s = 0
+                    except AttributeError:
+                        s = 0
+                    cls.vacancies.append(HHVacancy(n, u, d, s))
 
 
 class SJVacancy(Vacancy, CountMixin):
     """ SuperJob Vacancy """
-    def __init__(self, data, name, url, description, salary):
+    vacancies = []
+    file = 'sj.json'
+
+    def __init__(self, name, url, description, salary):
         super().__init__(name, url, description, salary)
-        self.name = data['objects']['profession']
-        self.url = data['objects']['link']
-        self.description = data['objects']['candidat']
-        self.salary = data['objects']['payment_from']
+        self.url = url
+        self.count = CountMixin.get_count_of_vacancy
 
-    def sorting(vacancies_sj):
-        sort_sj = []
-        for i in range(len(vacancies_sj)):
-            if vacancies_sj[i]['payment_from'] is not None:
-                sort_sj.append(vacancies_sj[i])
-        sort_sj = sorted(key=lambda x: x['payment_from'], reverse=True)
-        return sort_sj
+    @classmethod
+    def instantiate_from_json(cls, file):
+        with open(f'{file}') as f:
+            file_opened = json.load(f)
+            for i in file_opened:
+                for item in i:
+                    p = item.get('profession')
+                    l = item.get('link')
+                    d = item.get('candidat')
+                    try:
+                        s = item.get('payment_from')
+                        if s == None: c = 0
+                    except AttributeError:
+                        s = 0
+                    cls.vacancies.append(SJVacancy(p, l, d, s))
 
-    def get_top(vacancies_hh, top_count):
-        sort_sj = sorted(key=lambda x: x['salary']['from'], reverse=True)
-        vac_sj_top = []
+
+def sorting(vacancies):
+    """ Должен сортировать любой список вакансий по ежемесячной оплате (gt, lt magic methods) """
+    vacancies = sorted(vacancies, reverse=True)
+    return vacancies
+
+
+def get_top(vacancies, top_count):
+    """ Должен возвращать {top_count} записей из вакансий по зарплате (iter, next magic methods) """
+    try:
         for i in range(top_count):
-            vac_sj_top.append(sort_sj[i])
-        return sort_sj
-
-    def __str__(self):
-        return f'SJ: {self.name}, зарплата: {self.salary} руб/мес'
-
+            print(vacancies[i])
+    except IndexError:
+        print(f'{top_count} все вакансии')
 
