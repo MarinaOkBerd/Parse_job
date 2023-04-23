@@ -1,14 +1,11 @@
-from abc import ABC, abstractmethod
-import requests
 import os
+from abc import ABC, abstractmethod
+from connector import Connector
 
-from requests import Response
-
-from connector import *
+import requests
 
 
 class Engine(ABC):
-
     @abstractmethod
     def get_request(self):
         raise NotImplementedError
@@ -19,59 +16,52 @@ class Engine(ABC):
 
 
 class HH(Engine):
+    url = 'https://api.hh.ru/'
+    per_page = 20
 
-    def __init__(self, name_vacancy: str, page: int = 0):
-        self.url: str = 'https://api.hh.ru/vacancies'
-        self.params = {'text': name_vacancy, 'page': 0, 'per_page': 100}
+    def get_vacancies(self, name_vacancy, page):
+        responce = requests.get(f'{self.url}vacancies?text={name_vacancy} & page={page}')
+        if responce.status_code == 200:
+            return responce.json()
+        return None
 
-    def get_request(self):
-        response = requests.get(self.url, params=self.params)
-        return response.json()
-
-    def get_vacancy_info(self, data):
-        vacancy_info = {'name': data['name'], 'url': data['alternate_url'],
-                       'description': data.get('snippet').get('responsibility'), 'salary': data.get('salary')
-        }
-        return vacancy_info
-
-    def get_vacancies(self):
-        vacancies = []
+    def get_request(self, name_vacancy, count_vacancy):
         page = 0
-        if len(vacancies) >= 500:
-            self.params['page'] = page
-            data = self.get_request()
-            for vacancy in data.get('items'):
-                if vacancy.get('salary') is not None and vacancy.get('salary').get('currency') is not None:
-                    if vacancy.get('salary').get('currency') == 'RUR':
-                        vacancy.append(self.get_vacancy_info(vacancy))
-                    else:
-                        continue
-                else:
-                    vacancy.append(self.get_vacancy_info(vacancy))
-
-
-
+        result = []
+        while self.per_page * page <= count_vacancy:
+            tmp_result = self.get_vacancies(name_vacancy, page)
+            if tmp_result:
+                result += tmp_result.get('items')
+                page += 1
+            else:
+                break
+        return result
 
 
 class SuperJob(Engine):
+    url = 'https://api.superjob.ru/2.0'
     api_key: str = os.getenv('SUPERJOB_API_KEY')
-    headers = {"X-Api-App-Id": api_key}
+    per_page = 20
 
-
-    def __init__(self, name_vacancy: str):
-        self.url: str = "https://api.superjob.ru/2.0/vacancies/"
-        self.params = {'text': name_vacancy, 'count': 100, 'page': 1}
-
-
-
-    def get_request(self):
-        response = requests.get(url=self.url, params=self.params, headers=self.headers)
-        return response.json()
-
-    def get_vacancy_info(self, data):
-        salary = {'from': data['payment_from'], 'to': data['payment_to'], 'currency': data['currency']}
-        vacancy_info={
-            'name': data['profession'], 'url': data['link'],
-            'description': data.get('objects').get('candidat'), 'salary': salary
+    def _send_request(self, name_vacancy, page):
+        url = f'{self.url}/vacancies/?page={page}&keyword={name_vacancy}'
+        headers = {
+            'X-Api-App-Id': self.api_key,
+            'Content-Type': 'application/x-www-form-urlencoded'
         }
-        return vacancy_info
+        responce = requests.get(url=url, headers=headers)
+        if responce.status_code == 200:
+            return responce.json()
+        return None
+
+    def get_request(self, name_vacancy, count_vacancy):
+        page = 0
+        result = []
+        while self.per_page * page <= count_vacancy:
+            tmp_result = self._send_request(name_vacancy, page)
+            if tmp_result:
+                result += tmp_result.get('objects')
+                page += 1
+            else:
+                break
+        return result
